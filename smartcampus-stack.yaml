@@ -1,8 +1,8 @@
-# CloudFormation Template - SmartCampus
+# CloudFormation Template - SmartCampus (com rota pública)
 
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >
-  Infraestrutura AWS para a Plataforma SmartCampus. Cria VPC, Subnet, EC2 com Streamlit e Bucket S3.
+  Infraestrutura AWS para a Plataforma SmartCampus com Subnet pública, Internet Gateway e painel acessível.
 
 Resources:
 
@@ -16,16 +16,51 @@ Resources:
         - Key: Name
           Value: SmartCampusVPC
 
+  SmartCampusInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: SmartCampusIGW
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref SmartCampusVPC
+      InternetGatewayId: !Ref SmartCampusInternetGateway
+
+  SmartCampusRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref SmartCampusVPC
+      Tags:
+        - Key: Name
+          Value: SmartCampusRouteTable
+
+  DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref SmartCampusRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref SmartCampusInternetGateway
+
   SmartCampusSubnet:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref SmartCampusVPC
       CidrBlock: 10.0.1.0/24
-      AvailabilityZone: !Select [ 0, !GetAZs '' ]
       MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
       Tags:
         - Key: Name
           Value: SmartCampusSubnet
+
+  AssociateRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SmartCampusSubnet
+      RouteTableId: !Ref SmartCampusRouteTable
 
   SmartCampusSG:
     Type: AWS::EC2::SecurityGroup
@@ -54,7 +89,7 @@ Resources:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: t2.micro
-      ImageId: ami-0c02fb55956c7d316 # Ubuntu Server 22.04 LTS (us-east-1)
+      ImageId: ami-0c02fb55956c7d316 # Ubuntu 22.04 LTS
       SubnetId: !Ref SmartCampusSubnet
       SecurityGroupIds:
         - !Ref SmartCampusSG
@@ -70,11 +105,3 @@ Resources:
           git clone https://github.com/brumelido/plataforma-smartcampuss.git
           cd plataforma-smartcampuss/painel
           nohup streamlit run painel.py &
-
-  SmartCampusS3:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: smartcampus-dados-big
-      Tags:
-        - Key: Name
-          Value: SmartCampusBucket
