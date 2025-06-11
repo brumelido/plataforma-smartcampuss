@@ -1,8 +1,8 @@
-# CloudFormation Template - SmartCampus (com rota pública)
+# CloudFormation Template - SmartCampus Final (Painel funcionando direto)
 
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >
-  Infraestrutura AWS para a Plataforma SmartCampus com Subnet pública, Internet Gateway e painel acessível.
+  Infraestrutura AWS para a Plataforma SmartCampus com tudo pronto: rota pública, SG liberado e Streamlit rodando automaticamente.
 
 Resources:
 
@@ -89,7 +89,7 @@ Resources:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: t2.micro
-      ImageId: ami-0c02fb55956c7d316 # Ubuntu 22.04 LTS
+      ImageId: ami-053b0d53c279acc90  # Ubuntu Server 22.04 LTS (x86_64) – compatível EC2 Connect (us-east-1)
       SubnetId: !Ref SmartCampusSubnet
       SecurityGroupIds:
         - !Ref SmartCampusSG
@@ -99,9 +99,9 @@ Resources:
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
-          sudo apt update
-          sudo apt install -y python3-pip git
+          apt update -y
+          apt install -y python3-pip git
           pip3 install streamlit grpcio grpcio-tools
           git clone https://github.com/brumelido/plataforma-smartcampuss.git
           cd plataforma-smartcampuss/painel
-          nohup streamlit run painel.py &
+          nohup streamlit run painel.py --server.port 8501 --server.address 0.0.0.0 > log.txt 2>&1 &
