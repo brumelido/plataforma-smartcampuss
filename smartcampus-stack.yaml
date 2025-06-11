@@ -1,0 +1,80 @@
+# CloudFormation Template - SmartCampus
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Infraestrutura AWS para a Plataforma SmartCampus. Cria VPC, Subnet, EC2 com Streamlit e Bucket S3.
+
+Resources:
+
+  SmartCampusVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: SmartCampusVPC
+
+  SmartCampusSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref SmartCampusVPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: SmartCampusSubnet
+
+  SmartCampusSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow Streamlit and SSH
+      VpcId: !Ref SmartCampusVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8501
+          ToPort: 8501
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          FromPort: 0
+          ToPort: 0
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: SmartCampusSG
+
+  SmartCampusInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-0c02fb55956c7d316 # Ubuntu Server 22.04 LTS (us-east-1)
+      SubnetId: !Ref SmartCampusSubnet
+      SecurityGroupIds:
+        - !Ref SmartCampusSG
+      Tags:
+        - Key: Name
+          Value: SmartCampusInstance
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          sudo apt update
+          sudo apt install -y python3-pip git
+          pip3 install streamlit grpcio grpcio-tools
+          git clone https://github.com/brumelido/plataforma-smartcampuss.git
+          cd plataforma-smartcampuss/painel
+          nohup streamlit run painel.py &
+
+  SmartCampusS3:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: smartcampus-dados-big
+      Tags:
+        - Key: Name
+          Value: SmartCampusBucket
